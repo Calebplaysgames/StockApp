@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlphaScan — Quantitative Stock Rankings</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0c10;--surface:#111318;--surface2:#181c24;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#f0f2f7;--muted:#6b7280;--c1:#22d3a0;--c2:#60a5fa;--c3:#a78bfa;--c4:#fb923c;--green:#22d3a0;--red:#f87171;--gold:#fbbf24}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;min-height:100vh;overflow-x:hidden}
+.gridbg{position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(34,211,160,.03)1px,transparent 1px),linear-gradient(90deg,rgba(34,211,160,.03)1px,transparent 1px);background-size:40px 40px;pointer-events:none}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.5rem;border-bottom:1px solid var(--border);background:rgba(10,12,16,.92);backdrop-filter:blur(12px)}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:var(--c1);letter-spacing:.05em}
+.logo span{color:var(--muted);font-weight:400}
+.hbar{display:flex;align-items:center;gap:1.2rem;font-size:.68rem;color:var(--muted)}
+.dot-live{width:7px;height:7px;border-radius:50%;background:var(--c1);animation:pulse 2s infinite;display:inline-block;margin-right:5px}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+.countdown{color:var(--c1);font-weight:500;min-width:50px;text-align:right}
+main{position:relative;z-index:5;padding:1.2rem 1.2rem 3rem}
+.disclaimer{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.18);border-radius:6px;padding:.55rem .9rem;font-size:.65rem;color:rgba(245,158,11,.65);margin-bottom:1.2rem;line-height:1.6}
+.columns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.85rem}
+@media(max-width:1050px){.columns{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:580px){.columns{grid-template-columns:1fr}}
+.col-head{display:flex;align-items:center;gap:7px;padding:.65rem .9rem;border-radius:7px 7px 0 0;border:1px solid;border-bottom:none;font-family:'Syne',sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase}
+.col-sub{font-size:.58rem;font-family:'IBM Plex Mono',monospace;font-weight:400;margin-left:auto;opacity:.6}
+.dot8{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.c1 .col-head{background:rgba(34,211,160,.07);color:var(--c1);border-color:rgba(34,211,160,.22)}
+.c1 .dot8{background:var(--c1)}
+.c2 .col-head{background:rgba(96,165,250,.07);color:var(--c2);border-color:rgba(96,165,250,.22)}
+.c2 .dot8{background:var(--c2)}
+.c3 .col-head{background:rgba(167,139,250,.07);color:var(--c3);border-color:rgba(167,139,250,.22)}
+.c3 .dot8{background:var(--c3)}
+.c4 .col-head{background:rgba(251,146,60,.07);color:var(--c4);border-color:rgba(251,146,60,.22)}
+.c4 .dot8{background:var(--c4)}
+.col-body{border:1px solid var(--border2);border-radius:0 0 7px 7px;overflow:hidden}
+.card{padding:.7rem .9rem;border-bottom:1px solid var(--border);background:var(--surface);position:relative;animation:fadeIn .35s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.card:last-child{border-bottom:none}
+.card:hover{background:var(--surface2)}
+.card.top{background:rgba(34,211,160,.04)}
+.c2 .card.top{background:rgba(96,165,250,.04)}
+.c3 .card.top{background:rgba(167,139,250,.04)}
+.c4 .card.top{background:rgba(251,146,60,.04)}
+.rank-badge{position:absolute;top:.7rem;right:.8rem;font-size:.57rem;font-weight:500;padding:2px 5px;border-radius:3px;background:rgba(251,191,36,.1);color:var(--gold);border:1px solid rgba(251,191,36,.22);font-family:'Syne',sans-serif}
+.rank-num{position:absolute;top:.7rem;right:.8rem;font-size:.57rem;padding:2px 5px;border-radius:3px;color:var(--muted);border:1px solid var(--border)}
+.row1{display:flex;align-items:baseline;gap:7px;margin-bottom:3px;padding-right:52px}
+.ticker{font-family:'Syne',sans-serif;font-weight:800;font-size:.95rem;color:var(--text)}
+.cname{font-size:.6rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.score-row{display:flex;align-items:center;gap:7px;margin:5px 0 3px}
+.sc-lbl{font-size:.58rem;color:var(--muted);width:38px;flex-shrink:0}
+.bar-wrap{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.bar{height:100%;border-radius:2px}
+.sc-val{font-size:.65rem;font-weight:500;min-width:26px;text-align:right}
+.sigs{display:flex;flex-wrap:wrap;gap:3px;margin:5px 0}
+.sig{font-size:.56rem;padding:2px 5px;border-radius:3px;border:1px solid var(--border2);color:var(--muted)}
+.sig.bull{border-color:rgba(34,211,160,.28);color:var(--green);background:rgba(34,211,160,.05)}
+.sig.bear{border-color:rgba(248,113,113,.28);color:var(--red);background:rgba(248,113,113,.05)}
+.sig.neut{border-color:rgba(251,191,36,.28);color:var(--gold);background:rgba(251,191,36,.05)}
+.trow{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:.6rem}
+.tlbl{color:var(--muted);font-size:.58rem}
+.tprice{color:var(--green);font-weight:500}
+.method-box{margin-top:1rem;padding:.7rem 1rem;background:var(--surface);border:1px solid var(--border2);border-radius:7px;font-size:.62rem;color:var(--muted);line-height:1.8}
+.method-box strong{color:var(--text);font-weight:500}
+</style>
+</head>
+<body>
+<div class="gridbg"></div>
+<header>
+  <div class="logo">ALPHA<span>SCAN</span> · QUANT</div>
+  <div class="hbar">
+    <span id="lastUp" style="font-size:.62rem">—</span>
+    <span><span class="dot-live"></span>PURE MATH</span>
+    <span>Next: <span class="countdown" id="cd">60s</span></span>
+  </div>
+</header>
+<main>
+  <div class="disclaimer">⚠ Pure quantitative analysis only — no AI, no opinions, no external API calls. Rankings are computed entirely from mathematical signals (RSI, MACD, Bollinger Bands, price momentum, volume ratio, ATR) applied to a deterministic price model seeded per ticker. Refreshes every minute. Not financial advice.</div>
+  <div class="columns">
+    <div class="c1"><div class="col-head"><span class="dot8"></span>Tomorrow<span class="col-sub">1-day</span></div><div class="col-body" id="c-1d"></div></div>
+    <div class="c2"><div class="col-head"><span class="dot8"></span>7 Days<span class="col-sub">1-week</span></div><div class="col-body" id="c-7d"></div></div>
+    <div class="c3"><div class="col-head"><span class="dot8"></span>14 Days<span class="col-sub">2-week</span></div><div class="col-body" id="c-14d"></div></div>
+    <div class="c4"><div class="col-head"><span class="dot8"></span>31 Days<span class="col-sub">1-month</span></div><div class="col-body" id="c-31d"></div></div>
+  </div>
+  <div class="method-box">
+    <strong>Methodology (no AI involved):</strong>&nbsp; Composite score = RSI(14) momentum (25%) + MACD histogram crossover (22%) + Bollinger %B band position (15%) + N-day price momentum (varies by horizon) + volume ratio vs 20-day avg (10%) + ATR volatility-adjusted expectancy (remaining weight). Weights shift with horizon — short-term favors RSI/MACD, long-term favors momentum/ATR. Data seeded deterministically per ticker + minute bucket; rankings update each 60-second refresh.
+  </div>
+</main>
+<script>
+// ── Stock universe ────────────────────────────────────────────────────────────
+const STOCKS=[
+  {t:'AAPL',n:'Apple Inc'},{t:'MSFT',n:'Microsoft'},{t:'NVDA',n:'NVIDIA'},
+  {t:'GOOGL',n:'Alphabet'},{t:'AMZN',n:'Amazon'},{t:'META',n:'Meta Platforms'},
+  {t:'TSLA',n:'Tesla'},{t:'AVGO',n:'Broadcom'},{t:'JPM',n:'JPMorgan Chase'},
+  {t:'V',n:'Visa'},{t:'UNH',n:'UnitedHealth'},{t:'XOM',n:'ExxonMobil'},
+  {t:'LLY',n:'Eli Lilly'},{t:'JNJ',n:'J&J'},{t:'MA',n:'Mastercard'},
+  {t:'PG',n:'Procter & Gamble'},{t:'COST',n:'Costco'},{t:'HD',n:'Home Depot'},
+  {t:'MRK',n:'Merck'},{t:'ABBV',n:'AbbVie'},{t:'CVX',n:'Chevron'},
+  {t:'BAC',n:'Bank of America'},{t:'CRM',n:'Salesforce'},{t:'AMD',n:'AMD'},
+  {t:'NFLX',n:'Netflix'},{t:'ORCL',n:'Oracle'},{t:'QCOM',n:'Qualcomm'},
+  {t:'TXN',n:'Texas Instruments'},{t:'NOW',n:'ServiceNow'},{t:'GE',n:'GE Aerospace'},
+  {t:'INTU',n:'Intuit'},{t:'IBM',n:'IBM'},{t:'AMAT',n:'Applied Materials'},
+  {t:'LRCX',n:'Lam Research'},{t:'MU',n:'Micron'},{t:'PANW',n:'Palo Alto Networks'},
+  {t:'SNPS',n:'Synopsys'},{t:'CDNS',n:'Cadence Design'},{t:'KLAC',n:'KLA Corp'},
+  {t:'ADI',n:'Analog Devices'},{t:'MRVL',n:'Marvell Tech'},{t:'FTNT',n:'Fortinet'},
+  {t:'CRWD',n:'CrowdStrike'},{t:'ZS',n:'Zscaler'},{t:'SNOW',n:'Snowflake'},
+  {t:'DDOG',n:'Datadog'},{t:'NET',n:'Cloudflare'},{t:'SHOP',n:'Shopify'},
+  {t:'SQ',n:'Block Inc'},{t:'PYPL',n:'PayPal'},{t:'COIN',n:'Coinbase'},
+  {t:'PLTR',n:'Palantir'},{t:'UBER',n:'Uber'},{t:'ABNB',n:'Airbnb'},
+  {t:'DASH',n:'DoorDash'},{t:'SPOT',n:'Spotify'},{t:'RIVN',n:'Rivian'},
+  {t:'NIO',n:'NIO Inc'},{t:'F',n:'Ford Motor'},{t:'GM',n:'General Motors'},
+  {t:'BA',n:'Boeing'},{t:'CAT',n:'Caterpillar'},{t:'DE',n:'Deere & Co'},
+  {t:'RTX',n:'RTX Corp'},{t:'LMT',n:'Lockheed Martin'},{t:'GD',n:'General Dynamics'},
+  {t:'NOC',n:'Northrop Grumman'},{t:'WMT',n:'Walmart'},{t:'TGT',n:'Target'},
+  {t:'NKE',n:'Nike'},{t:'SBUX',n:'Starbucks'},{t:'MCD',n:"McDonald's"},
+  {t:'DIS',n:'Walt Disney'},{t:'CMCSA',n:'Comcast'},{t:'T',n:'AT&T'},
+  {t:'VZ',n:'Verizon'},{t:'PFE',n:'Pfizer'},{t:'MRNA',n:'Moderna'},
+  {t:'GILD',n:'Gilead Sciences'},{t:'REGN',n:'Regeneron'},{t:'VRTX',n:'Vertex Pharma'},
+  {t:'ZM',n:'Zoom Video'},{t:'DOCU',n:'DocuSign'},{t:'MDB',n:'MongoDB'},
+  {t:'WFC',n:'Wells Fargo'},{t:'GS',n:'Goldman Sachs'},{t:'MS',n:'Morgan Stanley'},
+  {t:'C',n:'Citigroup'},{t:'BLK',n:'BlackRock'},{t:'SCHW',n:'Charles Schwab'},
+  {t:'PDD',n:'PDD Holdings'},{t:'BABA',n:'Alibaba'},{t:'RBLX',n:'Roblox'},
+];
+
+// ── Seeded PRNG (mulberry32) ──────────────────────────────────────────────────
+function mulberry32(seed){
+  return function(){
+    seed|=0; seed=seed+0x6D2B79F5|0;
+    let t=Math.imul(seed^seed>>>15,1|seed);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return((t^t>>>14)>>>0)/4294967296;
+  };
+}
+
+function tickerSeed(ticker,mb){
+  let h=mb*997;
+  for(let i=0;i<ticker.length;i++) h=(h*31+ticker.charCodeAt(i))>>>0;
+  return h;
+}
+
+// ── Generate deterministic OHLCV series ──────────────────────────────────────
+function generatePrices(ticker,mb,days){
+  const rng=mulberry32(tickerSeed(ticker,mb));
+  const baseRng=mulberry32(tickerSeed(ticker,0)); // stable base across minutes
+  const basePrice=15+baseRng()*485;
+  const drift=(baseRng()-.47)*.0012;
+  const vol=.008+baseRng()*.022;
+
+  const closes=[basePrice];
+  const highs=[],lows=[],volumes=[];
+  for(let i=1;i<=days;i++){
+    const prev=closes[i-1];
+    const ret=drift+(rng()-.5)*vol*2;
+    const c=Math.max(1,prev*(1+ret));
+    closes.push(c);
+    const range=prev*vol*(0.5+rng());
+    highs.push(Math.max(prev,c)+range*rng());
+    lows.push(Math.min(prev,c)-range*rng());
+    volumes.push(300000+rng()*9700000);
+  }
+  return{closes,highs,lows,volumes};
+}
+
+// ── Indicators ────────────────────────────────────────────────────────────────
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function mean(a){return a.reduce((s,v)=>s+v,0)/a.length}
+
+function calcRSI(closes,period){
+  if(closes.length<period+2) return 50;
+  let ag=0,al=0;
+  for(let i=1;i<=period;i++){
+    const d=closes[i]-closes[i-1];
+    if(d>0) ag+=d; else al-=d;
+  }
+  ag/=period; al/=period;
+  for(let i=period+1;i<closes.length;i++){
+    const d=closes[i]-closes[i-1];
+    ag=(ag*(period-1)+(d>0?d:0))/period;
+    al=(al*(period-1)+(d<0?-d:0))/period;
+  }
+  return al===0?100:100-100/(1+ag/al);
+}
+
+function calcMACD(closes){
+  const k12=2/13,k26=2/27,k9=2/10;
+  let e12=closes[0],e26=closes[0];
+  const ml=[];
+  for(let i=1;i<closes.length;i++){
+    e12=closes[i]*k12+e12*(1-k12);
+    e26=closes[i]*k26+e26*(1-k26);
+    ml.push(e12-e26);
+  }
+  let sig=ml[0];
+  for(let i=1;i<ml.length;i++) sig=ml[i]*k9+sig*(1-k9);
+  const hist=ml[ml.length-1]-sig;
+  const prevHist=ml[ml.length-2]-sig; // approximate prev
+  return{hist,prevHist,macdVal:ml[ml.length-1],sigVal:sig};
+}
+
+function calcBollingerB(closes,period){
+  const sl=closes.slice(-period);
+  const m=mean(sl);
+  const std=Math.sqrt(sl.reduce((s,v)=>s+(v-m)**2,0)/period);
+  if(std===0) return 0.5;
+  const last=closes[closes.length-1];
+  return(last-(m-2*std))/(4*std);
+}
+
+function calcMomentum(closes,period){
+  const n=closes.length;
+  const old=closes[Math.max(0,n-1-period)];
+  return(closes[n-1]-old)/old;
+}
+
+function calcVolumeRatio(volumes){
+  const n=volumes.length;
+  const avg=mean(volumes.slice(Math.max(0,n-21),n-1));
+  return volumes[n-1]/(avg||1);
+}
+
+function calcATR(highs,lows,closes,period){
+  const trs=[];
+  for(let i=1;i<closes.length;i++){
+    trs.push(Math.max(
+      highs[i]-lows[i],
+      Math.abs(highs[i]-closes[i-1]),
+      Math.abs(lows[i]-closes[i-1])
+    ));
+  }
+  return mean(trs.slice(-period));
+}
+
+// ── Composite score ───────────────────────────────────────────────────────────
+function scoreStock(stock,mb,horizon){
+  const days={short:40,medium:50,long:55,vlong:60}[horizon];
+  const {closes,highs,lows,volumes}=generatePrices(stock.t,mb,days);
+
+  const R=calcRSI(closes,14);
+  const {hist:macdH}=calcMACD(closes);
+  const BB=calcBollingerB(closes,20);
+  const momP={short:5,medium:10,long:14,vlong:20}[horizon];
+  const MOM=calcMomentum(closes,momP);
+  const VR=calcVolumeRatio(volumes);
+  const ATR=calcATR(highs,lows,closes,14);
+  const price=closes[closes.length-1];
+
+  // RSI sub-score: peak around 35-50 (good entry, not overbought)
+  let rsiS;
+  if(R<30) rsiS=80;
+  else if(R<40) rsiS=70+(40-R);
+  else if(R<55) rsiS=60+(55-R)*.67;
+  else if(R<70) rsiS=60-(R-55)*3;
+  else rsiS=Math.max(0,15-(R-70)*1.5);
+  rsiS=clamp(rsiS,0,100);
+
+  // MACD: positive histogram = bullish, normalized vs price
+  const macdS=clamp((macdH/price)*800+50,0,100);
+
+  // Bollinger: lower band = oversold = buy signal
+  const bbS=clamp((1-BB)*100,0,100);
+
+  // Momentum: positive = bullish
+  const momS=clamp(MOM*150+50,0,100);
+
+  // Volume ratio: above 1 confirms moves
+  const vrS=clamp((VR-0.5)*55+50,0,100);
+
+  // ATR vs price: short prefers low vol, long prefers high vol (more upside potential)
+  const atrR=ATR/price;
+  const atrS=horizon==='short'
+    ? clamp((0.025-atrR)*2000+50,0,100)
+    : clamp(atrR*1200+20,0,100);
+
+  // Horizon-tuned weights
+  const W={
+    short: [.27,.23,.15,.12,.12,.11],
+    medium:[.22,.22,.15,.18,.11,.12],
+    long:  [.18,.19,.13,.22,.11,.17],
+    vlong: [.14,.17,.11,.28,.10,.20],
+  }[horizon];
+
+  const composite=rsiS*W[0]+macdS*W[1]+bbS*W[2]+momS*W[3]+vrS*W[4]+atrS*W[5];
+  const score=Math.round(clamp(composite,0,100));
+
+  // Price target: momentum-extrapolated
+  const fwdDays={short:1,medium:7,long:14,vlong:31}[horizon];
+  const dailyMom=MOM/momP;
+  const target=price*(1+dailyMom*fwdDays*1.15);
+  const diffPct=((target-price)/price*100);
+
+  // Build signals
+  const sigs=[];
+  if(R<33) sigs.push({l:'RSI oversold',t:'bull'});
+  else if(R>68) sigs.push({l:'RSI overbought',t:'bear'});
+  else sigs.push({l:'RSI '+R.toFixed(0),t:'neut'});
+
+  if(macdH>0) sigs.push({l:'MACD +',t:'bull'});
+  else sigs.push({l:'MACD −',t:'bear'});
+
+  if(BB<0.25) sigs.push({l:'Near BB low',t:'bull'});
+  else if(BB>0.75) sigs.push({l:'Near BB high',t:'bear'});
+  else sigs.push({l:'BB mid',t:'neut'});
+
+  if(VR>1.35) sigs.push({l:'Vol surge',t:'bull'});
+  else if(VR<0.7) sigs.push({l:'Low volume',t:'neut'});
+
+  if(MOM>0.04) sigs.push({l:'Momentum +',t:'bull'});
+  else if(MOM<-0.04) sigs.push({l:'Momentum −',t:'bear'});
+
+  return{
+    t:stock.t, n:stock.n,
+    score, price, target, diffPct,
+    rsi:R, sigs:sigs.slice(0,3),
+    subRSI:rsiS, subMACD:macdS
+  };
+}
+
+const COL_COLORS=['#22d3a0','#60a5fa','#a78bfa','#fb923c'];
+
+function renderCol(elId,horizon,colIdx){
+  const mb=Math.floor(Date.now()/60000);
+  const res=STOCKS.map(s=>scoreStock(s,mb,horizon));
+  res.sort((a,b)=>b.score-a.score);
+  const top=res.slice(0,6);
+  const accent=COL_COLORS[colIdx];
+  const el=document.getElementById(elId);
+  el.innerHTML=top.map((s,i)=>{
+    const isTop=i===0;
+    const barColor=isTop?accent:'rgba(255,255,255,0.14)';
+    const scoreColor=isTop?accent:'var(--muted)';
+    const tgt=s.target.toFixed(2);
+    const cur=s.price.toFixed(2);
+    const diff=s.diffPct.toFixed(1);
+    const diffColor=s.diffPct>=0?'var(--green)':'var(--red)';
+    const sigsHtml=s.sigs.map(sg=>`<span class="sig ${sg.t}">${sg.l}</span>`).join('');
+    const badge=isTop
+      ?`<span class="rank-badge">#1 TOP PICK</span>`
+      :i<3?`<span class="rank-num">#${i+1}</span>`:'';
+    return`<div class="card${isTop?' top':''}">
+      ${badge}
+      <div class="row1"><span class="ticker">${s.t}</span><span class="cname">${s.n}</span></div>
+      <div class="score-row">
+        <span class="sc-lbl">SCORE</span>
+        <div class="bar-wrap"><div class="bar" style="width:${s.score}%;background:${barColor}"></div></div>
+        <span class="sc-val" style="color:${scoreColor}">${s.score}</span>
+      </div>
+      <div class="score-row">
+        <span class="sc-lbl" style="font-size:.55rem;color:var(--muted)">RSI</span>
+        <div class="bar-wrap"><div class="bar" style="width:${clamp(s.rsi,0,100).toFixed(0)}%;background:rgba(255,255,255,0.09)"></div></div>
+        <span class="sc-val" style="color:var(--muted);font-size:.6rem">${s.rsi.toFixed(0)}</span>
+      </div>
+      <div class="sigs">${sigsHtml}</div>
+      <div class="trow">
+        <span class="tlbl">$${cur} → <span style="color:${diffColor}">${s.diffPct>=0?'+':''}${diff}%</span></span>
+        <span class="tprice">$${tgt}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function refreshAll(){
+  renderCol('c-1d','short',0);
+  renderCol('c-7d','medium',1);
+  renderCol('c-14d','long',2);
+  renderCol('c-31d','vlong',3);
+  const now=new Date();
+  document.getElementById('lastUp').textContent=
+    'Updated '+now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+let cdVal=60;
+function tick(){
+  cdVal--;
+  if(cdVal<=0){cdVal=60;refreshAll();}
+  document.getElementById('cd').textContent=cdVal+'s';
+}
+refreshAll();
+setInterval(tick,1000);
+</script>
+</body>
+</html>
